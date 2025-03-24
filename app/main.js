@@ -4,7 +4,12 @@ const net = require("net");
 console.log("Logs from your program will appear here!");
 
 const server = net.createServer((connection) => {
-  connection.write(`+PONG\r\n`);
+    connection.addListener('data', (data) => {
+        const dataStr = data.toString();
+        if (dataStr === '*1\r\n$4\r\nping\r\n') {
+          connection.write('+PONG\r\n');
+        }
+    });
 });
 
 server.listen(6379, "127.0.0.1");
