@@ -2,21 +2,55 @@ const net = require("net");
 
 console.log("Logs from your program will appear here!");
 
+// Pre-define common responses
+const PONG_RESPONSE = "+PONG\r\n";
+const OK_RESPONSE = "+OK\r\n";
+const NULL_RESPONSE = "$-1\r\n";
+const CRLF = "\r\n";
+
+// In-memory storage for key-value pairs
+const storage = new Map();
+
+// Command handlers map for faster lookup
+const handlers = {
+  PING: () => PONG_RESPONSE,
+  
+  ECHO: (parts) => {
+    const arg = parts[4];
+    return `$${arg.length}${CRLF}${arg}${CRLF}`;
+  },
+  
+  SET: (parts) => {
+    storage.set(parts[4], parts[6]);
+    return OK_RESPONSE;
+  },
+  
+  GET: (parts) => {
+    const value = storage.get(parts[4]);
+    if (value === undefined) return NULL_RESPONSE;
+    return `$${value.length}${CRLF}${value}${CRLF}`;
+  }
+};
+
 const server = net.createServer((connection) => {
-  // Handle incoming data
+  // Use a buffer to handle partial data
+  let buffer = '';
+  
   connection.on('data', (data) => {
-    const input = data.toString();
-    const parts = input.split('\r\n');
+    buffer += data;
     
-    // Parse RESP array
-    if (parts[0].startsWith('*')) {
-      const command = parts[2].toUpperCase(); // Command is always the first argument
+    // Process complete commands
+    if (buffer.includes(CRLF)) {
+      const parts = buffer.split(CRLF);
+      buffer = ''; // Reset buffer
       
-      if (command === 'PING') {
-        connection.write("+PONG\r\n");
-      } else if (command === 'ECHO') {
-        const argument = parts[4]; // The argument follows after its length
-        connection.write(`$${argument.length}\r\n${argument}\r\n`);
+      if (parts[0].startsWith('*')) {
+        const command = parts[2].toUpperCase();
+        const handler = handlers[command];
+        
+        if (handler) {
+          connection.write(handler(parts));
+        }
       }
     }
   });
