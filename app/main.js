@@ -8,6 +8,25 @@ const OK_RESPONSE = "+OK\r\n";
 const NULL_RESPONSE = "$-1\r\n";
 const CRLF = "\r\n";
 
+// Parse command line arguments
+const args = process.argv.slice(2);
+const config = {
+  dir: ".",
+  dbfilename: "dump.rdb"
+};
+
+// Process command line arguments
+for (let i = 0; i < args.length; i += 2) {
+  const flag = args[i];
+  const value = args[i + 1];
+  
+  if (flag === "--dir") {
+    config.dir = value;
+  } else if (flag === "--dbfilename") {
+    config.dbfilename = value;
+  }
+}
+
 // In-memory storage for key-value pairs and their expiry times
 const storage = new Map();
 const expiryTimes = new Map();
@@ -62,6 +81,22 @@ const handlers = {
     const value = storage.get(key);
     if (value === undefined) return NULL_RESPONSE;
     return `$${value.length}${CRLF}${value}${CRLF}`;
+  },
+
+  CONFIG: (args) => {
+    const subcommand = args[0].toUpperCase();
+    if (subcommand === "GET") {
+      const param = args[1].toLowerCase();
+      const value = config[param];
+      
+      if (value === undefined) {
+        return "*2\r\n$-1\r\n$-1\r\n";
+      }
+      
+      // Format as RESP array with two bulk strings
+      return `*2\r\n$${param.length}\r\n${param}\r\n$${value.length}\r\n${value}\r\n`;
+    }
+    return NULL_RESPONSE;
   }
 };
 
